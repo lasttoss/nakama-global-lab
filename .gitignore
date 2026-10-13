@@ -1,0 +1,7 @@
+*.log
+*.bak
+.cookie
+.DS_Store
+tmp/
+/tmp/
+docs/restore-stacks.sh

@@ -1,0 +1,107 @@
+# Nakama Global Lab — 2 cell compute (Nakama) + 1 data plane (YugabyteDB) + Valkey per-cell
+# Câu hỏi lab trả lời:
+#  1. Nakama chạy được trên YugabyteDB không? (migrate + auth + storage + leaderboard)
+#  2. Account/storage/leaderboard có DÙNG CHUNG giữa 2 cell không? (ghi ở A, đọc ở B)
+#  3. Valkey per-cell: state cục bộ không share (đúng ranh giới), và bẫy ZINCRBY cộng đôi
+#
+# ⚠️ KHÁC BẢN CHUẨN: không dùng `nakama migrate up` cho YB. Trên YB nó chết ở migration
+#   20250926112031-console-fine-grained-acl.sql (SQLSTATE 42703 column "role" does not exist),
+#   trong khi CÙNG SQL đó chạy sạch bằng ysqlsh (20/20). Xem docs/yugabyte-workaround.md.
+name: nkglobal
+
+services:
+  # ── DATA PLANE ─────────────────────────────────────────────────────────────
+  yb:
+    image: yugabytedb/yugabyte:${YB_TAG:-2026.1.2.0-b137}
+    restart: unless-stopped
+    container_name: nkglobal-yb
+    command: ["bash","-c","bin/yugabyted start --daemon=false --base_dir=/home/yugabyte/yb_data --listen=0.0.0.0 --tserver_flags=pgsql_proxy_bind_address=0.0.0.0:5433,ysql_default_transaction_isolation=serializable"]
+    environment:
+      - YSQL_USER=yugabyte
+    ports:
+      - "20433:5433"  # YSQL (host 5433 la cua another project -> dung 20433)
+    volumes:
+      - yb_data:/home/yugabyte/yb_data
+    healthcheck:
+      test: ["CMD-SHELL","bin/ysqlsh -h $$(hostname -i) -U yugabyte -c 'select 1' >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 8s
+      retries: 40
+      start_period: 90s
+
+  # ── INIT CỦA DATA PLANE (thay cho `nakama migrate up`) ─────────────────────
+  # Áp schema Nakama lên YB bằng ysqlsh + ghi sổ migration_info. Idempotent.
+  # Nakama chỉ start SAU KHI service này chạy xong (service_completed_successfully).
+  yb-init:
+    image: yugabytedb/yugabyte:${YB_TAG:-2026.1.2.0-b137}
+    container_name: nkglobal-yb-init
+    restart: "no"
+    depends_on:
+      yb:
+        condition: service_healthy
+    environment:
+      YB_HOST: yb
+      YB_PORT: "5433"
+      YB_USER: yugabyte
+      YB_DB: yugabyte
+      MIG_DIR: /migrations
+    volumes:
+      - ./yb-migrations:/migrations:ro
+      - ./scripts/yb-init.sh:/yb-init.sh:ro
+    entrypoint: ["/bin/bash","-lc","/yb-init.sh"]
+
+  # ── CELL A ─────────────────────────────────────────────────────────────────
+  nakama-a:
+    image: heroiclabs/nakama:3.41.0
+    restart: unless-stopped
+    container_name: nkglobal-nakama-a
+    depends_on:
+      yb-init:
+        condition: service_completed_successfully
+    entrypoint: ["/nakama/nakama"]
+    command:
+      - "--name=nakama-a"
+      - "--database.address=yugabyte@yb:5433/yugabyte"
+      - "--logger.level=INFO"
+      - "--session.token_expiry_sec=7200"
+      - "--console.username=admin"
+      - "--console.password=password"
+    ports:
+      - "20350:7350"   # HTTP API cell A
+      - "20351:7351"   # console cell A
+
+  # ── CELL B (cùng data plane, KHÔNG init/migrate gì) ────────────────────────
+  nakama-b:
+    image: heroiclabs/nakama:3.41.0
+    restart: unless-stopped
+    container_name: nkglobal-nakama-b
+    depends_on:
+      yb-init:
+        condition: service_completed_successfully
+    entrypoint: ["/nakama/nakama"]
+    command:
+      - "--name=nakama-b"
+      - "--database.address=yugabyte@yb:5433/yugabyte"
+      - "--logger.level=INFO"
+      - "--session.token_expiry_sec=7200"
+    ports:
+      - "20450:7350"   # HTTP API cell B
+      - "20451:7351"   # console cell B
+
+  # ── STATE CỤC BỘ MỖI CELL (không share — đúng ranh giới) ───────────────────
+  valkey-a:
+    image: valkey/valkey:8-alpine
+    container_name: nkglobal-valkey-a
+    command: ["valkey-server","--save",""]
+    ports:
+      - "20380:6379"
+
+  valkey-b:
+    image: valkey/valkey:8-alpine
+    container_name: nkglobal-valkey-b
+    command: ["valkey-server","--save",""]
+    ports:
+      - "20381:6379"
+
+volumes:
+  yb_data:

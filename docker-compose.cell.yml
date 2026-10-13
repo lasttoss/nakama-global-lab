@@ -1,0 +1,36 @@
+# Thêm 1 CELL (Nakama + Valkey riêng) vào data plane đang chạy — KHÔNG cần sửa compose chính.
+# Mỗi lần gọi = 1 cell mới, dùng project name riêng để nhiều cell sống song song:
+#   CELL_ID=e API_PORT=20750 CONSOLE_PORT=20751 VK_PORT=20780 \
+#     docker compose -p nkglobal-cell-e -f docker-compose.cell.yml up -d
+# hoặc: bash scripts/add-cell.sh e
+#
+# Cell là stateless: nó chỉ cần (a) chung data plane (yb), (b) Valkey riêng cho state cục bộ.
+name: nkglobal-cell
+
+services:
+  nakama:
+    image: heroiclabs/nakama:3.41.0
+    container_name: nkglobal-cell-${CELL_ID:?set CELL_ID}-nakama
+    restart: unless-stopped
+    entrypoint: ["/nakama/nakama"]
+    command:
+      - "--name=cell-${CELL_ID}"
+      - "--database.address=yugabyte@yb:5433/yugabyte"
+      - "--logger.level=INFO"
+      - "--session.token_expiry_sec=7200"
+    ports:
+      - "${API_PORT:?set API_PORT}:7350"
+      - "${CONSOLE_PORT:?set CONSOLE_PORT}:7351"
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: nkglobal-cell-${CELL_ID}-valkey
+    command: ["valkey-server","--save",""]
+    ports:
+      - "${VK_PORT:?set VK_PORT}:6379"
+
+# quan trọng: cell phải nối vào network của data plane đang chạy
+networks:
+  default:
+    name: nkglobal_default
+    external: true

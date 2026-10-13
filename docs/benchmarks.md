@@ -1,0 +1,38 @@
+# Benchmarks — method (not yet run)
+
+This lab currently proves **correctness** (shared account/storage across cells) but has **no latency
+or throughput numbers**, because every cell runs on one machine. Publishing numbers from that setup
+would be misleading. This file fixes the method so the numbers can be produced and trusted.
+
+## What to measure
+
+| # | Metric | How |
+|---|---|---|
+| 1 | Auth round trip, p50/p95/p99 | N=1000 sequential `POST /v2/account/authenticate/device`, per cell |
+| 2 | Storage write / read p50/p95 | 1000 objects × (`PUT /v2/storage`, `GET /v2/storage/{collection}`) |
+| 3 | Cell→data-plane link latency | `tc netem` delay on the cell's egress, then repeat 1–2 |
+| 4 | Throughput ceiling | ramped workers (k6/artillery), report req/s at p95 < 27 ms and error rate |
+| 5 | Cell failure recovery | kill cell A mid-ramp: time until clients reconnect to cell B, error count |
+| 6 | Cost per 1k CCU-hour | node counts × cloud list prices, stated with the region and date |
+
+## The cross-region part (the only number that decides the architecture)
+
+Simulate distance instead of renting it — inject the RTT a cell would see towards a distant data plane:
+
+```bash
+# on the cell's egress (inside the nakama container namespace)
+tc qdisc add dev eth0 root netem delay 60ms     # ~ one-way 60ms ≈ 120ms RTT ≈ US↔EU
+# and for a same-region control run
+tc qdisc del dev eth0 root 2>/dev/null
+```
+
+Then repeat measurements 1–4 and report the **delta**, not the absolute values. That delta is what a
+player pays when their account write lands in another region — and it is the number that justifies or
+kills a shared data plane.
+
+## Rules for publishing numbers here
+
+1. State the machine, region, container versions, method, and sample size — every time.
+2. Report p50 **and** p95; single "average" numbers are not accepted in this repo.
+3. Never compare runs with different client hardware unless the difference is the point.
+4. If a number could not be produced, say so here instead of estimating it.

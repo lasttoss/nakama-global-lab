@@ -1,0 +1,63 @@
+# A/B #2: Nakama + CockroachDB — host networking (vì --insecure buộc listen 127.0.0.1)
+name: nkcrdb
+
+services:
+  crdb:
+    image: cockroachdb/cockroach:${CRDB_TAG:-v23.2.5}
+    container_name: nkcrdb-crdb
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - start-single-node
+      - --insecure
+      - --store=type=mem,size=25%
+      - --listen-addr=127.0.0.1:26257
+      - --http-addr=127.0.0.1:8080
+    healthcheck:
+      test: ["CMD-SHELL","/cockroach/cockroach sql --insecure --host=127.0.0.1 -e 'select 1' >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 8s
+      retries: 30
+      start_period: 30s
+
+  nakama-a:
+    image: heroiclabs/nakama:3.41.0
+    container_name: nkcrdb-nakama-a
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      crdb: { condition: service_healthy }
+    entrypoint: ["/bin/bash","-ecx"]
+    command:
+      - |
+        /nakama/nakama migrate up --database.address root@127.0.0.1:26257/defaultdb && echo MIGRATE-OK
+        exec /nakama/nakama --name nakama-a --database.address root@127.0.0.1:26257/defaultdb \
+          --socket.port 7350 --console.port 7351 --socket.server_key defaultkey \
+          --logger.level INFO --session.token_expiry_sec 7200 \
+          --console.username admin --console.password password
+
+  nakama-b:
+    image: heroiclabs/nakama:3.41.0
+    container_name: nkcrdb-nakama-b
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      crdb: { condition: service_healthy }
+    entrypoint: ["/bin/bash","-ecx"]
+    command:
+      - |
+        exec /nakama/nakama --name nakama-b --database.address root@127.0.0.1:26257/defaultdb \
+          --socket.port 7450 --console.port 7451 --socket.server_key defaultkey \
+          --logger.level INFO --session.token_expiry_sec 7200
+
+  valkey-a:
+    image: valkey/valkey:8-alpine
+    container_name: nkcrdb-valkey-a
+    network_mode: host
+    command: ["valkey-server","--port","6380","--save",""]
+
+  valkey-b:
+    image: valkey/valkey:8-alpine
+    container_name: nkcrdb-valkey-b
+    network_mode: host
+    command: ["valkey-server","--port","6381","--save",""]
