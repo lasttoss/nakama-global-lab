@@ -10,7 +10,8 @@ Verified: the file list at tag `v3.41.0` and this directory are identical (20/20
 
 Nakama embeds its migrations in the binary and applies them with `nakama migrate up`.
 That path is **broken on YugabyteDB** (fails at
-`20250926112031-console-fine-grained-acl.sql` with `SQLSTATE 42703 column "role" does not exist`)
+`20180103142001_initial_schema.sql` with `SQLSTATE 40001`, at the COMMIT of the file's transaction —
+see `docs/nakama-with-yugabytedb.md`)
 while **the very same SQL applies cleanly through `ysqlsh`**. See `docs/findings.md`.
 
 So this repo applies the schema itself (`scripts/yb-init.sh`) and seeds Nakama's

@@ -1,3 +1,8 @@
+> ⚠️ **ĐÍNH CHÍNH 2026-10-14** — số liệu cũ trong file này ("chết ở 16/20, file `console-fine-grained-acl`, `SQLSTATE 42703`") **không tái hiện được** ✗.
+> Đo lại trên DB mới tinh: `nakama migrate up` **fail ngay file #1 (0/5 lần chạy)**, `SQLSTATE 40001`, ở **COMMIT**;
+> cùng file đó chạy **từng câu** thì OK 10/10, chạy trong **1 transaction** thì fail 10/10.
+> Repro 3 câu không cần Nakama: `repro/`. Kết luận đúng: `docs/nakama-with-yugabytedb.md`.
+
 # Đo đạc — nakama-global-lab (2026-10-13)
 
 Máy: 12 vCPU / 31 GB RAM · Docker 29.1.3 · Ubuntu 24.04 · **tất cả trên một máy** ⇒ latency ở đây

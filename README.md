@@ -10,7 +10,7 @@ and automated.
 
 | Question | Answer | Evidence |
 |---|---|---|
-| Can Nakama run on YugabyteDB? | **Yes**, with a documented workaround | `nakama migrate up` → 16/20 ✗, the same SQL via `ysqlsh` → **20/20** ✓ (`docs/nakama-with-yugabytedb.md`) |
+| Can Nakama run on YugabyteDB? | **Yes**, with a documented workaround | `nakama migrate up` ✗ fails at **migration 1 on a fresh DB (0/5 runs)**; the same SQL via `ysqlsh` ✓ **20/20 (5/5)** — `docs/nakama-with-yugabytedb.md` |
 | Do cells share account/storage data? | **Yes** — one device, two cells, same `user_id` | `make smoke` → 11 pass / 0 fail / 1 skip |
 | Can a new cell be added with no data migration? | **Yes** — one command, no data moves | `bash scripts/add-cell.sh e` (`docs/scaling-cells.md`) |
 | Does local state leak between cells? | **No** — Valkey is per cell by design | smoke step 4 |
@@ -40,10 +40,12 @@ Expected smoke output:
 
 ## 1. Nakama + YugabyteDB
 
-`nakama migrate up` **cannot** complete on YugabyteDB: it stops at
-`20250926112031-console-fine-grained-acl.sql` with `SQLSTATE 42703: column "role" does not exist`
-— while the **same 20 SQL files** apply cleanly through `ysqlsh`. So the blocker is how Nakama
-executes the statements, not the SQL and not YB's SQL layer.
+`nakama migrate up` **cannot initialise a database on YugabyteDB**: on a fresh database it fails at
+the *first* of 20 files (0/5 runs applied anything, `SQLSTATE 40001`), while the **same 20 SQL files**
+apply cleanly through `ysqlsh` (20/20, 5/5 runs). The mechanism is **reproduced in 3 statements
+without Nakama** — see [`repro/`](repro/README.md): the same statements inside one transaction fail
+10/10 at `COMMIT`; outside a transaction they pass 10/10. So the blocker is how the statements are
+executed, not the SQL and not YB's SQL layer.
 
 This repo applies the schema itself and seeds Nakama's `migration_info` bookkeeping table, wired as a
 real compose **init service** (`yb-init`) that both cells wait on. Full write-up, including why
@@ -70,6 +72,7 @@ a leaderboard is not idempotent under replication):
 ## Layout
 
 ```
+repro/                      # 3-statement minimal reproduction + self-checking runner (no Nakama needed)
 docker-compose.yml          # YugabyteDB + yb-init + 2 cells + 2 Valkey   (main stack)
 docker-compose.crdb.yml     # same topology on CockroachDB, using `nakama migrate up` (it works there)
 docker-compose.cell.yml     # template for adding one more cell
