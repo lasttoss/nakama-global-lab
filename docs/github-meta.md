@@ -1,4 +1,4 @@
-> Running Nakama on YugabyteDB (with the `nakama migrate up` incompatibility reproduced, explained and automated) and scaling it by cells that share one data plane.
+> Running Nakama on YugabyteDB, measured: `nakama migrate up` fails at migration 1 on a fresh database (same SQL applies 20/20 via ysqlsh, reduced to a 4-line repro that PostgreSQL and CockroachDB commit); plus cell-based scaling with netem-measured latency, throughput and 0.08 s cell failover.
 
 # GitHub description & topics (paste manually)
 
