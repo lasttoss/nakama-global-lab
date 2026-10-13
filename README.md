@@ -14,6 +14,7 @@ and automated.
 | Do cells share account/storage data? | **Yes** — one device, two cells, same `user_id` | `make smoke` → 11 pass / 0 fail / 1 skip |
 | Can a new cell be added with no data migration? | **Yes** — one command, no data moves | `bash scripts/add-cell.sh e` (`docs/scaling-cells.md`) |
 | Does local state leak between cells? | **No** — Valkey is per cell by design | smoke step 4 |
+| What does a cross-region data plane cost? | **~160× on the hot path** — auth p50 1.5 ms → 242 ms over a symmetric 60 ms WAN | `docs/benchmarks-results.md` |
 
 ## Quickstart
 
@@ -86,10 +87,17 @@ CockroachDB is the control case: `nakama migrate up` completes **20/20** there, 
 YugabyteDB issue and proves the topology is not the problem. Different trade-offs (license, ops,
 ecosystem) are a separate decision and are deliberately **not** part of this repo.
 
+## Benchmarks
+
+Cell ↔ data-plane latency is **measured**, by injecting netem delay on the cell→database leg only:
+[`docs/benchmarks-results.md`](docs/benchmarks-results.md) (re-runnable via `bash scripts/bench-latency.sh`).
+Headline: the injected delay shows up as **1 / 2 / 3 data-plane round trips** for storage GET / auth /
+storage PUT — so those API paths are 1–3 WAN round trips away from answering.
+
 ## Not measured yet (honest list)
 
-- **Cross-region latency** — every cell runs on one machine here, so timings from this lab would be
-  meaningless. Method planned in [`docs/benchmarks.md`](docs/benchmarks.md) (`tc netem` + client-observed RTT).
+- **Throughput and failure recovery** — the latency numbers above are single-client and sequential;
+  no req/s claim is made, and cell-death recovery is not measured.
 - **Multi-node YugabyteDB** (this lab is single-node YB; production needs 3 nodes for RF=3) —
   runbook in [`docs/selfhost-3node-ubuntu.md`](docs/selfhost-3node-ubuntu.md).
 - Leaderboard writes through the client API: creating a board needs a Nakama **runtime RPC**, so the

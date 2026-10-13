@@ -1,8 +1,9 @@
 # Benchmarks — method (not yet run)
 
-This lab currently proves **correctness** (shared account/storage across cells) but has **no latency
-or throughput numbers**, because every cell runs on one machine. Publishing numbers from that setup
-would be misleading. This file fixes the method so the numbers can be produced and trusted.
+This file fixes the method so numbers are produced and trusted. **Items 1–3 have been run** — see
+[`docs/benchmarks-results.md`](benchmarks-results.md) (cell↔data-plane latency: 1/2/3 data-plane round
+trips per read/auth/write, measured with netem). **Throughput and failure-recovery (items 4–5) are
+still not measured.**
 
 ## What to measure
 
