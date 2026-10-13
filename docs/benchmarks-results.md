@@ -50,12 +50,58 @@ network, and it is what makes the network distance expensive:
    the reason it must stay per-cell (and the reason it must not hold anything that has to survive
    a cell dying).
 
+## Throughput (same machine, one cell, single-node YugabyteDB)
+
+Client: `scripts/bench-throughput.py` (Python threads) — a **floor**, not a ceiling, because the client
+shares one CPU with everything else. `--requests 600`, errors 0 in every case.
+
+| API | concurrency 1 | 10 | 50 |
+|---|---|---|---|
+| auth **req/s** | 679 | **1372** | 789 |
+| auth p95 | 2.0 ms | 7.0 ms | 514 ms |
+| storage GET **req/s** | 884 | **2086** | 1721 |
+| storage GET p95 | 1.2 ms | 6.5 ms | 168 ms |
+
+⇒ It saturates around **concurrency 10** (~1.4k auth/s, ~2.1k reads/s). Past that, p95 degrades
+sharply and throughput *falls*: the ceiling belongs to the cell and its data-plane connection pool,
+not to the client.
+
+## Throughput with a WAN-like delay (netem 120 ms one-way ≈ 240 ms RTT)
+
+| API | concurrency 1 | 10 | 50 |
+|---|---|---|---|
+| auth req/s | 4 | 33 | 81 |
+| auth p50 / p95 | 242 / 243 | 242 / **1174** | 245 / **1348** |
+| storage GET req/s | 8 | 71 | 206 |
+| storage GET p50 / p95 | 122 / 122 | 122 / 397 | 126 / 468 |
+
+⇒ Latency-bound, exactly as the round-trip count predicts: 4 req/s ≈ 1 / 0.242 s at concurrency 1, and
+throughput grows with concurrency, so distance is not a hard wall — but **p95 climbs far faster than
+p50** (1174 ms vs 242 ms at concurrency 10), i.e. requests queue behind the cell's data-plane
+connections. Reads reach ~3× the write throughput at the same concurrency, matching their 1-vs-3
+round trips.
+
+## Cell death (kill a cell mid-traffic)
+
+`bash scripts/bench-recovery.sh` — the measured cell is killed outright with `docker kill`:
+
+| Client behaviour | Result |
+|---|---|
+| knows only that cell's address | **5/5 requests fail** ✗ |
+| has a cell list (tries the dead cell, then the other) | succeeded on the other cell **0.08 s** after the kill |
+| data | account identical on the surviving cell (`9327923b-…`) — nothing lost |
+| total requests lost across both behaviours | 6 |
+
+⇒ A cell is disposable: the recovery cost is the client's failover logic, and no data is lost because
+no cell owns data. This is the practical payoff of the per-cell + shared-data-plane design.
+
 ## Limitations (so these numbers are not over-read)
 
 - Injected delay is **one-way only** (the YugabyteDB container has no `tc`, and the host has no
   passwordless `sudo`). A symmetric WAN adds the same delay on the return leg, so **double the deltas**
   for a real cross-region hop — which is exactly why the 120 ms column is shown: it is the equivalent
   of a symmetric 60 ms link.
-- **Sequential single client**, no concurrency: these are latencies, not throughput. No req/s claim is made.
-- Not measured: connection-pool warming, retries, and behaviour when the data plane is *briefly*
-  unavailable (see `docs/benchmarks.md`, items 4–5).
+- The throughput client is Python-threaded and shares the machine with the stack, so those numbers
+  are a **floor**; a dedicated load generator would find a higher ceiling.
+- Not measured: connection-pool warming, retries, data-plane (not cell) failure, and multi-hour soak
+  behaviour. See `docs/benchmarks.md` for the remaining method notes.

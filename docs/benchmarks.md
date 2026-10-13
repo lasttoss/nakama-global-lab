@@ -1,9 +1,9 @@
 # Benchmarks — method (not yet run)
 
-This file fixes the method so numbers are produced and trusted. **Items 1–3 have been run** — see
-[`docs/benchmarks-results.md`](benchmarks-results.md) (cell↔data-plane latency: 1/2/3 data-plane round
-trips per read/auth/write, measured with netem). **Throughput and failure-recovery (items 4–5) are
-still not measured.**
+This file fixes the method so numbers are produced and trusted. **Items 1–5 have been run** — see [`docs/benchmarks-results.md`](benchmarks-results.md):
+cell↔data-plane latency (1/2/3 data-plane round trips per read/auth/write, measured with netem),
+throughput with and without delay, and cell-death recovery. **Still not measured:** a real
+cross-region deployment, data-plane failure, and multi-hour soak behaviour.
 
 ## What to measure
 

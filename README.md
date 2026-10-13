@@ -15,6 +15,8 @@ and automated.
 | Can a new cell be added with no data migration? | **Yes** — one command, no data moves | `bash scripts/add-cell.sh e` (`docs/scaling-cells.md`) |
 | Does local state leak between cells? | **No** — Valkey is per cell by design | smoke step 4 |
 | What does a cross-region data plane cost? | **~160× on the hot path** — auth p50 1.5 ms → 242 ms over a symmetric 60 ms WAN | `docs/benchmarks-results.md` |
+| How much can one cell take? | saturates near **1.4k auth/s / 2.1k reads/s** (single-node YB); with a 240 ms RTT it becomes latency-bound and p95 queues | `docs/benchmarks-results.md` |
+| What happens when a cell dies? | a cell-list client recovers in **0.08 s** on another cell, **same account**, nothing lost | `docs/benchmarks-results.md` |
 
 ## Quickstart
 
@@ -95,12 +97,14 @@ ecosystem) are a separate decision and are deliberately **not** part of this rep
 Cell ↔ data-plane latency is **measured**, by injecting netem delay on the cell→database leg only:
 [`docs/benchmarks-results.md`](docs/benchmarks-results.md) (re-runnable via `bash scripts/bench-latency.sh`).
 Headline: the injected delay shows up as **1 / 2 / 3 data-plane round trips** for storage GET / auth /
-storage PUT — so those API paths are 1–3 WAN round trips away from answering.
+storage PUT — so those API paths are 1–3 WAN round trips away from answering. The same file also holds
+throughput with and without delay, and cell-death recovery (0.08 s failover to another cell).
 
 ## Not measured yet (honest list)
 
-- **Throughput and failure recovery** — the latency numbers above are single-client and sequential;
-  no req/s claim is made, and cell-death recovery is not measured.
+- **A real cross-region deployment** — delay was injected on one machine; no multi-region cluster was
+  run, and data-plane (not just cell) failure is untested.
+- **Sustained load** — throughput was measured in short bursts; multi-hour soak behaviour is untested.
 - **Multi-node YugabyteDB** (this lab is single-node YB; production needs 3 nodes for RF=3) —
   runbook in [`docs/selfhost-3node-ubuntu.md`](docs/selfhost-3node-ubuntu.md).
 - Leaderboard writes through the client API: creating a board needs a Nakama **runtime RPC**, so the
