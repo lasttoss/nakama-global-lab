@@ -1,0 +1,109 @@
+<!-- diagram-meta {"topic":"nakama-cells-shared-dataplane","level":"container","type":"architecture","question":"How do cells share a data plane, and what does that cost or buy when a cell or the plane fails?","sources":["docker-compose.yml","docker-compose.cell.yml","docker-compose.yb3.yml","docs/benchmarks-results.md","docs/scaling-cells.md"],"updated":"2026-10-14"} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nakama cells on one data plane · Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:  #f5f5f5;
+      --color-ink:    #2d3142;
+      --color-muted:  #4f5d75;
+      --color-accent: #eb6c36;
+      --font-sans:  'Geist', system-ui, sans-serif;
+      --font-serif: 'Instrument Serif', serif;
+      --font-mono:  'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink);
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1040px; width: 100%; }
+    .eyebrow { font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em;
+               text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--font-serif); font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+         letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 1.5rem; }
+    svg { width: 100%; min-width: 900px; display: block; }
+    .wrap { overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · measured, 2026-10-14</p>
+    <h1>Cells share one data plane</h1>
+    <div class="wrap">
+    <svg viewBox="0 0 1000 560" xmlns="http://www.w3.org/2000/svg" role="img"
+         aria-labelledby="cells-shared-dp-title cells-shared-dp-desc">
+      <title id="cells-shared-dp-title">Nakama cells sharing a YugabyteDB data plane</title>
+      <desc id="cells-shared-dp-desc">Two stateless Nakama cells, each with its own Valkey holding per-cell state, send player traffic to one shared YugabyteDB cluster of three nodes with replication factor three. Text notes record that killing a cell moves clients to the other cell in 0.08 seconds, and that losing one database node still allows writes.</desc>
+
+      <defs>
+        <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+          <circle cx="1" cy="1" r="0.9" fill="rgba(45,49,66,0.10)"/>
+        </pattern>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/>
+        </marker>
+        <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#eb6c36"/>
+        </marker>
+      </defs>
+
+      <rect width="100%" height="100%" fill="#f5f5f5"/>
+      <rect width="100%" height="100%" fill="url(#dots)" opacity="0.55"/>
+
+      <!-- arrows (behind boxes) -->
+      <path d="M 460,116 H 248 Q 232,116 232,132 V 196" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <path d="M 540,116 H 752 Q 768,116 768,132 V 196" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+      <line x1="220" y1="264" x2="220" y2="292" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+      <line x1="780" y1="264" x2="780" y2="292" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+
+      <path d="M 120,228 H 64 Q 48,228 48,244 V 456 Q 48,472 64,472 H 292" fill="none" stroke="#eb6c36" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+      <path d="M 880,228 H 936 Q 952,228 952,244 V 456 Q 952,472 936,472 H 708" fill="none" stroke="#eb6c36" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+
+      <!-- arrow label -->
+      <rect x="58" y="330" width="52" height="12" rx="2" fill="#f5f5f5"/>
+      <text x="84" y="339" fill="#eb6c36" font-size="8" font-family="'Geist Mono', monospace"
+            text-anchor="middle" letter-spacing="0.08em">1/2/3 RT</text>
+
+      <!-- node: players -->
+      <rect x="420" y="60" width="160" height="56" rx="6" fill="#f5f5f5" stroke="#7a8399" stroke-width="1"/>
+      <text x="500" y="84" fill="#2d3142" font-size="12" font-weight="600" text-anchor="middle">Players</text>
+      <text x="500" y="100" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">device auth · storage · boards</text>
+
+      <!-- node: cell A -->
+      <rect x="120" y="200" width="200" height="64" rx="6" fill="#f5f5f5" stroke="#2d3142" stroke-width="1"/>
+      <text x="220" y="226" fill="#2d3142" font-size="12" font-weight="600" text-anchor="middle">Cell A · Nakama</text>
+      <text x="220" y="244" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">stateless</text>
+
+      <!-- node: cell B -->
+      <rect x="680" y="200" width="200" height="64" rx="6" fill="#f5f5f5" stroke="#2d3142" stroke-width="1"/>
+      <text x="780" y="226" fill="#2d3142" font-size="12" font-weight="600" text-anchor="middle">Cell B · Nakama</text>
+      <text x="780" y="244" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">stateless</text>
+
+      <!-- node: valkey A / B -->
+      <rect x="120" y="296" width="200" height="60" rx="6" fill="rgba(79,93,117,0.10)" stroke="#7a8399" stroke-width="1"/>
+      <text x="220" y="320" fill="#2d3142" font-size="11" font-weight="500" text-anchor="middle">Valkey A</text>
+      <text x="220" y="338" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.10em">NOT SHARED</text>
+
+      <rect x="680" y="296" width="200" height="60" rx="6" fill="rgba(79,93,117,0.10)" stroke="#7a8399" stroke-width="1"/>
+      <text x="780" y="320" fill="#2d3142" font-size="11" font-weight="500" text-anchor="middle">Valkey B</text>
+      <text x="780" y="338" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.10em">NOT SHARED</text>
+
+      <!-- node: data plane (focal) -->
+      <rect x="300" y="436" width="400" height="76" rx="6" fill="#eb6c36"/>
+      <text x="500" y="464" fill="#f5f5f5" font-size="13" font-weight="600" text-anchor="middle">YugabyteDB · 3 nodes</text>
+      <text x="500" y="484" fill="rgba(245,245,245,0.85)" font-size="9" font-family="'Geist Mono', monospace"
+            text-anchor="middle" letter-spacing="0.10em">SHARED · ACCOUNTS · STORAGE · BOARDS · RF=3</text>
+
+      <!-- annotations (2 max) -->
+      <text x="120" y="392" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" letter-spacing="0.04em">kill this cell → clients served by B in 0.08 s</text>
+      <text x="500" y="540" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace"
+            text-anchor="middle" letter-spacing="0.04em">lose one database node → writes still succeed (10/10 probes)</text>
+    </svg>
+    </div>
+  </div>
+</body>
+</html>

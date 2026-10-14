@@ -21,6 +21,14 @@ and automated.
 | What happens when a cell dies? | a cell-list client recovers in **0.08 s** on another cell, **same account**, nothing lost | `docs/benchmarks-results.md` |
 | What happens when the data plane dies? | **every cell fails at once** — but no data loss, cells survive, and a cell serves again **1 s** after the plane answers | `docs/benchmarks-results.md` |
 
+## How the pieces fit
+
+Two stateless cells, one shared account and storage layer, and per-cell state that never leaves the cell:
+
+![Architecture: a Players box sends traffic to two stateless Nakama cells, each with its own Valkey labelled NOT SHARED, and both cells reach one shared YugabyteDB cluster of three nodes with replication factor three. Notes record that killing a cell moves clients to the other cell in 0.08 seconds and that losing one database node still allows writes.](docs/figures/nakama-cells-shared-dataplane.png)
+
+**Figure 1**. Cells share one data plane (`docs/figures/nakama-cells-shared-dataplane.html` is the source).
+
 ## Quickstart
 
 ```bash
