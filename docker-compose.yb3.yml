@@ -1,12 +1,12 @@
-# YugabyteDB 3 node (mỗi node chạy cả master + tserver, như 3 máy thật), replication factor 3.
-# Dùng để CHỨNG MINH phần "scale storage": mất 1 node vẫn ghi/đọc được (docs/yb-3node-lab.md).
+# YugabyteDB, 3 nodes (each runs master + tserver, like three real machines), replication factor 3.
+# Used to PROVE the storage story: losing one node still allows reads and writes (docs/yb-3node-lab.md).
 #
 #   docker compose -f docker-compose.yb3.yml up -d
-#   bash scripts/yb3-init.sh          # áp 20 migration (từng câu) + seed migration_info
-#   bash scripts/yb3-kill-test.sh     # kill 1 node, kiểm vẫn phục vụ, rồi cho node vào lại
+#   bash scripts/yb3-init.sh          # apply the 20 migrations (statement by statement) + seed migration_info
+#   bash scripts/yb3-kill-test.sh     # kill one node, prove it still serves, then let the node rejoin
 #
-# Dữ liệu ~5 GB: đặt YB3_DATA=<đường dẫn ngoài repo> nếu không muốn nó nằm trong cây mã nguồn
-# (mặc định ./yb3-data, đã bị .gitignore chặn).
+# ~5 GB of data: set YB3_DATA=<path outside the repo> to keep it out of the source tree
+# (defaults to ./yb3-data, which .gitignore already blocks).
 name: yb3
 
 x-yb: &yb

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Xác minh 20 file SQL khớp MANIFEST.sha256 (phát hiện trôi/khác bản).
+# Verify the 20 SQL files match MANIFEST.sha256 (catches drift or a swapped file).
 set -euo pipefail
 cd "$(dirname "$0")/../yb-migrations"
 sha256sum -c MANIFEST.sha256 --quiet

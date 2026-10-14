@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Áp 20 migration lên cụm YB 3 node bằng ysqlsh TỪNG CÂU (đường duy nhất chạy được — xem docs/nakama-with-yugabytedb.md)
-# rồi seed bảng migration_info để Nakama khởi động mà không cần 'migrate up'.
-#   bash scripts/yb3-init.sh [node]        # mặc định node n1
+# Apply the 20 migrations to the 3-node YB cluster statement by statement (the only path that works — see docs/nakama-with-yugabytedb.md)
+# then seed migration_info so Nakama can start without 'migrate up'.
+#   bash scripts/yb3-init.sh [node]        # defaults to node n1
 set -euo pipefail
 cd "$(dirname "$0")/.."
 NODE="${1:-yb3-n1}"
-HOST="${YB3_HOST:-n1}"   # YSQL bind vào tên node, không phải 127.0.0.1
+HOST="${YB3_HOST:-n1}"   # YSQL binds to the node name, not 127.0.0.1
 DB=nakama3
 Y() { docker exec -i "$NODE" /home/yugabyte/bin/ysqlsh -h "$HOST" -U yugabyte -d "$1" "${@:2}"; }
 for _ in $(seq 1 60); do Y postgres -t -A -c 'select 1' >/dev/null 2>&1 && break; sleep 3; done
@@ -23,4 +23,4 @@ for f in $(ls yb-migrations/*.sql | sort); do
   Y "$DB" -q -c "INSERT INTO migration_info(id) VALUES ('$b') ON CONFLICT DO NOTHING"
   applied=$((applied+1))
 done
-echo "applied=$applied skipped=$skipped (DB=$DB trên $NODE)"
+echo "applied=$applied skipped=$skipped (DB=$DB on $NODE)"

@@ -42,12 +42,12 @@ make down         # stop; `make clean` also removes volumes
 Expected smoke output:
 
 ```
-──────── 1. AUTH: cùng device id ở 2 cell → cùng account?
-   PASS ✓ ACCOUNT DÙNG CHUNG ✓ (cùng user_id ở 2 cell)
-──────── 2. STORAGE: ghi ở A → đọc ở B?
-   PASS ✓ STORAGE DÙNG CHUNG ✓ (cell B đọc thấy dữ liệu ghi từ cell A)
-──────── 4. VALKEY per-cell: có share không? (kỳ vọng: KHÔNG)
-   PASS ✓ VALKEY KHÔNG SHARE ✓ (đúng: state cục bộ)
+──────── 1. AUTH: same device id on both cells -> same account?
+   PASS ✓ ACCOUNT IS SHARED ✓ (same user_id on both cells)
+──────── 2. STORAGE: write on A -> read on B?
+   PASS ✓ STORAGE IS SHARED ✓ (cell B reads data written by cell A)
+──────── 4. Per-cell VALKEY: is it shared? (expected: NO)
+   PASS ✓ VALKEY IS NOT SHARED ✓ (correct: local state)
    PASS=11  FAIL=0  SKIP=1
 ```
 
@@ -75,7 +75,7 @@ bash scripts/add-cell.sh e 20550 20551 20580
 #   cell 'e' HTTP 200 ✓
 #   cell A     user_id=5ee9a88c-56e6-4c1f-ae0b-af9b9ad7ac85
 #   cell 'e'   user_id=5ee9a88c-56e6-4c1f-ae0b-af9b9ad7ac85
-#   ✓ ACCOUNT DÙNG CHUNG — cell 'e' đã vào đúng data plane
+#   ✓ ACCOUNT IS SHARED — cell 'e' joined the right data plane
 ```
 
 Model, routing options, what is shared vs local, and the two traps (single writer per account row;

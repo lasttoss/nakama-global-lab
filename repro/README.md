@@ -18,19 +18,19 @@ bash repro/run.sh          # or: YBC=<container-name> bash repro/run.sh
 Files: `minimal.sql` (the four lines), `nakama-origin.sql` (the same failure as it reaches a real
 tool — the first three statements of Nakama's first migration file, verbatim). The runner creates a
 **fresh database per case** and **checks its own expectations**, so a mismatch prints
-`✗ KHÁC KỲ VỌNG` instead of passing silently.
+`✗ UNEXPECTED` instead of passing silently.
 
 ## Measured result (2026-10-14, YugabyteDB 2026.1.2.0-b137, single node, serializable)
 
 ```
 YugabyteDB: 15.12-YB-2026.1.2.0-b0
-  repro tối thiểu 3 câu, 1 transaction     FAIL  ✓ khớp
+  minimal repro, 3 statements, 1 transaction     FAIL  ✓ match
         ERROR:  current transaction is expired or aborted (query layer retry isn't possible because this is not the first command in the transaction. Consider using READ COMMITTED isolation level.)
         DETAIL:  Transaction 9f2c1f54-… expired or aborted by a conflict [serializable]
-  cùng 3 câu, KHÔNG transaction            OK    ✓ khớp
-  3 câu thật của Nakama, 1 transaction     FAIL  ✓ khớp
-  cả file migration #1, 1 transaction      FAIL  ✓ khớp
-  cả file migration #1, TỪNG CÂU (= yb-init) OK  ✓ khớp
+  same 3 statements, NO transaction              OK    ✓ match
+  Nakama's real 3 statements, 1 transaction      FAIL  ✓ match
+  all of migration #1, 1 transaction             FAIL  ✓ match
+  all of migration #1, STATEMENT BY STATEMENT    OK    ✓ match
 ```
 
 ## What is actually required (shrunk by measurement, not by guessing)

@@ -6,7 +6,7 @@ YB_TAG ?= 2026.1.2.0-b137
 
 .PHONY: pull up down logs ps init init-logs smoke smoke-crdb trap clean fix-perm test lint manifest
 
-# ── stack YugabyteDB (mặc định) ───────────────────────────────────────────────
+# ── YugabyteDB stack (default) ────────────────────────────────────────────────
 fix-perm: ; docker volume create nkglobal_yb_data >/dev/null; docker run --rm -u 0 -v nkglobal_yb_data:/mnt --entrypoint bash yugabytedb/yugabyte:$(YB_TAG) -c 'chown -R 10001:100 /mnt'
 pull:     ; docker compose pull
 up:       ; docker compose up -d --wait --wait-timeout 600
@@ -14,11 +14,11 @@ down:     ; docker compose down
 ps:       ; docker compose ps
 logs:     ; docker compose logs --tail=80 yb yb-init nakama-a nakama-b
 
-# ── init data plane (thay cho `nakama migrate up`, xem docs/findings.md) ──────
+# ── init the data plane (instead of `nakama migrate up`, see docs/nakama-with-yugabytedb.md) ──
 init:      ; docker compose run --rm yb-init
 init-logs: ; docker compose logs yb-init
 
-# ── kiểm chứng ───────────────────────────────────────────────────────────────
+# ── proof ─────────────────────────────────────────────────────────────────────
 mem: ; bash scripts/bench-memory.sh --duration 120 --interval 10 \
 	--containers nkglobal-yb,nkglobal-nakama-a,nkglobal-nakama-b,nkglobal-valkey-a
 
@@ -31,13 +31,13 @@ smoke-crdb: ; API_A=http://127.0.0.1:7350 API_B=http://127.0.0.1:7450 CONSOLE_A=
 trap:  ; bash scripts/leaderboard-trap.sh
 clean: ; docker compose down -v
 
-# ── kiểm tra tĩnh (không cần Docker; CI chạy đúng những cái này) ──────────────
+# ── static checks (no Docker needed; CI runs exactly these) ───────────────────
 test: lint manifest
 lint: ; bash scripts/check-secrets.sh
 	python3 scripts/check-docs-links.py
 	docker compose config -q
 	docker compose -f docker-compose.crdb.yml config -q
-	@echo "OK: tất cả kiểm tra tĩnh đã qua"
+	@echo "OK: all static checks passed"
 manifest: ; bash scripts/check-sql-manifest.sh
 regen-manifest: ; ( cd yb-migrations && find . -maxdepth 1 -name '*.sql' | sed 's|^\\./||' | sort | xargs sha256sum > MANIFEST.sha256 )
-	@echo "MANIFEST.sha256 đã tạo lại"
+	@echo "MANIFEST.sha256 regenerated"

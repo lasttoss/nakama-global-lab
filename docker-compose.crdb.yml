@@ -1,4 +1,4 @@
-# A/B #2: Nakama + CockroachDB — host networking (vì --insecure buộc listen 127.0.0.1)
+# A/B #2: Nakama + CockroachDB — host networking (--insecure forces a 127.0.0.1 bind)
 name: nkcrdb
 
 services:

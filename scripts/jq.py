@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""In giá trị theo đường dẫn dotted từ 1 file JSON. Dùng: jq.py <file> <a.b.0.c>"""
+"""Print a value by dotted path from a JSON file. Usage: jq.py <file> <a.b.0.c>"""
 import json,sys
 try:
     d=json.load(open(sys.argv[1]))

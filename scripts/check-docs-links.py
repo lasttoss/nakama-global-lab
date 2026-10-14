@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Kiểm tra mọi link tương đối trong README.md và docs/*.md có tồn tại thật."""
+"""Check that every relative link in README.md and docs/*.md actually exists."""
 import os, re, sys
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 bad, checked = [], 0

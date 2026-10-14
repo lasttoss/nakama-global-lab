@@ -38,12 +38,12 @@ on cell A and on the new cell and comparing `user_id`.
 Real output from this lab (cell E):
 
 ```
-== chờ cell 'e' trả lời ==
+== waiting for cell 'e' to answer ==
    cell 'e' HTTP 200 ✓
-== chứng minh: cùng account trên cell A và cell 'e'? ==
+== proof: same account on cell A and cell 'e'? ==
    cell A       user_id=5ee9a88c-56e6-4c1f-ae0b-af9b9ad7ac85
    cell 'e'     user_id=5ee9a88c-56e6-4c1f-ae0b-af9b9ad7ac85
-   ✓ ACCOUNT DÙNG CHUNG — cell 'e' đã vào đúng data plane
+   ✓ ACCOUNT IS SHARED — cell 'e' joined the right data plane
 ```
 
 Remove a cell — **no data migration**, because the cell owned no data:

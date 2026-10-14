@@ -1,9 +1,9 @@
-// Máy đo tải thật cho 1 cell Nakama: goroutine + connection pool, không phụ thuộc ngoài.
+// A real load generator for one Nakama cell: goroutines + a connection pool, no external deps.
 //
 //	go run scripts/bench-load.go -api http://127.0.0.1:20350 -op auth -conc 50 -dur 8s
 //
-// Đo trong một khoảng thời gian ở mức đồng thời cố định (không phải N request), nên tìm được
-// điểm gãy của cell thay vì đo tốc độ của chính máy đo.
+// It runs for a fixed duration at a fixed concurrency (not N requests), so it finds the cell's
+// breaking point instead of measuring the generator itself.
 package main
 
 import (
@@ -21,24 +21,24 @@ import (
 )
 
 func main() {
-	api := flag.String("api", "http://127.0.0.1:20350", "địa chỉ cell")
+	api := flag.String("api", "http://127.0.0.1:20350", "cell address")
 	op := flag.String("op", "auth", "auth | get")
-	conc := flag.Int("conc", 50, "số worker đồng thời")
-	dur := flag.Duration("dur", 8*time.Second, "thời gian đo")
+	conc := flag.Int("conc", 50, "number of concurrent workers")
+	dur := flag.Duration("dur", 8*time.Second, "measurement duration")
 	flag.Parse()
 
 	tr := &http.Transport{MaxIdleConns: 4096, MaxIdleConnsPerHost: 4096, MaxConnsPerHost: 0}
 	cl := &http.Client{Transport: tr, Timeout: 30 * time.Second}
 	basic := "Basic " + base64.StdEncoding.EncodeToString([]byte("defaultkey:"))
 
-	// warmup: lấy token + user_id
+	// warmup: fetch a token + user_id
 	body := []byte(`{"id":"loadgen-device"}`)
 	req, _ := http.NewRequest("POST", *api+"/v2/account/authenticate/device?create=true", bytes.NewReader(body))
 	req.Header.Set("Authorization", basic)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := cl.Do(req)
 	if err != nil {
-		fmt.Println("cell không trả lời:", err)
+		fmt.Println("cell did not answer:", err)
 		return
 	}
 	var session struct {
@@ -47,7 +47,7 @@ func main() {
 	_ = json.NewDecoder(resp.Body).Decode(&session)
 	resp.Body.Close()
 	if session.Token == "" {
-		fmt.Println("không lấy được token")
+		fmt.Println("could not get a token")
 		return
 	}
 	greq, _ := http.NewRequest("GET", *api+"/v2/account", nil)

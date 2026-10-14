@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# A/B nhanh: dựng YB ở tag cho trước + chạy migrate, báo cáo số migration áp được
-# dùng: bash scripts/ab-migrate.sh <yb-tag> [isolation]
+# Quick A/B: bring up YB at a given tag + run migrate, report how many migrations applied
+# usage: bash scripts/ab-migrate.sh <yb-tag> [isolation]
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
-TAG=${1:?cần tag, vd 2025.2.7.0-b107}
+TAG=${1:?a tag is required, e.g. 2025.2.7.0-b107}
 ISO=${2:-serializable}
 echo "### A/B: YB=$TAG isolation=$ISO"
 
-# đổi isolation trong compose
+# switch the isolation level in the compose file
 python3 - "$ISO" <<'PY'
 import re,sys
 iso=sys.argv[1]
@@ -25,17 +25,17 @@ YB_TAG="$TAG" docker compose up -d yb >/dev/null 2>&1
 for i in $(seq 1 48); do
   st=$(docker inspect -f '{{.State.Health.Status}}' nkglobal-yb 2>/dev/null || echo none)
   rn=$(docker inspect -f '{{.State.Status}}' nkglobal-yb 2>/dev/null || echo none)
-  [ "$rn" = "exited" ] && { echo "YB thoát ✗:"; docker logs --tail 12 nkglobal-yb; exit 1; }
+  [ "$rn" = "exited" ] && { echo "YB exited ✗:"; docker logs --tail 12 nkglobal-yb; exit 1; }
   [ "$st" = "healthy" ] && { echo "YB healthy (~$((i*5))s)"; break; }
   sleep 5
 done
 
 docker exec nkglobal-yb bash -c "bin/ysqlsh -h 127.0.0.1 -U yugabyte -tAc 'select version()'" 2>/dev/null | head -1
 
-# chạy migrate TRỰC TIẾP (không qua entrypoint) để đọc kết quả rõ ràng
-echo "--- chạy migrate up ---"
+# run migrate DIRECTLY (not through the entrypoint) so the result is unambiguous
+echo "--- running migrate up ---"
 docker run --rm --network nkglobal_default --entrypoint /nakama/nakama heroiclabs/nakama:3.41.0 \
   /nakama/nakama migrate up --database.address yugabyte@yb:5433/yugabyte 2>&1 | tail -4
-echo "--- số migration đã áp ---"
+echo "--- migrations applied ---"
 docker exec nkglobal-yb bash -c "bin/ysqlsh -h 127.0.0.1 -U yugabyte -d yugabyte -tAc 'select count(*) from migration_info'" 2>/dev/null
 docker exec nkglobal-yb bash -c "bin/ysqlsh -h 127.0.0.1 -U yugabyte -d yugabyte -tAc \"select count(*) from information_schema.tables where table_schema='public'\"" 2>/dev/null

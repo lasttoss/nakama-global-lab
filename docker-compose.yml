@@ -1,12 +1,12 @@
 # Nakama Global Lab — 2 cell compute (Nakama) + 1 data plane (YugabyteDB) + Valkey per-cell
-# Câu hỏi lab trả lời:
-#  1. Nakama chạy được trên YugabyteDB không? (migrate + auth + storage + leaderboard)
-#  2. Account/storage/leaderboard có DÙNG CHUNG giữa 2 cell không? (ghi ở A, đọc ở B)
-#  3. Valkey per-cell: state cục bộ không share (đúng ranh giới), và bẫy ZINCRBY cộng đôi
+# Questions this lab answers:
+#  1. Does Nakama run on YugabyteDB? (migrate + auth + storage + leaderboard)
+#  2. Are accounts, storage and leaderboards SHARED between two cells? (write on A, read on B)
+#  3. Per-cell Valkey: local state stays unshared (the right boundary), plus the ZINCRBY double-count trap
 #
-# ⚠️ KHÁC BẢN CHUẨN: không dùng `nakama migrate up` cho YB. Trên YB nó chết ở migration
+# ⚠️ DIFFERS FROM UPSTREAM: no `nakama migrate up` against YB. There it dies at migration #1,
 #   20250926112031-console-fine-grained-acl.sql (SQLSTATE 42703 column "role" does not exist),
-#   trong khi CÙNG SQL đó chạy sạch bằng ysqlsh (20/20). Xem docs/yugabyte-workaround.md.
+#   while the SAME SQL applies cleanly through ysqlsh (20/20). See docs/yugabyte-workaround.md.
 name: nkglobal
 
 services:
@@ -19,7 +19,7 @@ services:
     environment:
       - YSQL_USER=yugabyte
     ports:
-      - "20433:5433"  # YSQL (host 5433 la cua another project -> dung 20433)
+      - "20433:5433"  # YSQL (host 5433 belongs to another project -> use 20433)
     volumes:
       - yb_data:/home/yugabyte/yb_data
     healthcheck:
@@ -29,9 +29,9 @@ services:
       retries: 40
       start_period: 90s
 
-  # ── INIT CỦA DATA PLANE (thay cho `nakama migrate up`) ─────────────────────
-  # Áp schema Nakama lên YB bằng ysqlsh + ghi sổ migration_info. Idempotent.
-  # Nakama chỉ start SAU KHI service này chạy xong (service_completed_successfully).
+  # ── INITIALISING THE DATA PLANE (instead of `nakama migrate up`) ───────────
+  # Applies the Nakama schema to YB via ysqlsh and records migration_info. Idempotent.
+  # Nakama starts only AFTER this service completes (service_completed_successfully).
   yb-init:
     image: yugabytedb/yugabyte:${YB_TAG:-2026.1.2.0-b137}
     container_name: nkglobal-yb-init
@@ -70,7 +70,7 @@ services:
       - "20350:7350"   # HTTP API cell A
       - "20351:7351"   # console cell A
 
-  # ── CELL B (cùng data plane, KHÔNG init/migrate gì) ────────────────────────
+  # ── CELL B (same data plane, no init and no migrate at all) ────────────────
   nakama-b:
     image: heroiclabs/nakama:3.41.0
     restart: unless-stopped
@@ -88,7 +88,7 @@ services:
       - "20450:7350"   # HTTP API cell B
       - "20451:7351"   # console cell B
 
-  # ── STATE CỤC BỘ MỖI CELL (không share — đúng ranh giới) ───────────────────
+  # ── PER-CELL LOCAL STATE (not shared — the intended boundary) ──────────────
   valkey-a:
     image: valkey/valkey:8-alpine
     container_name: nkglobal-valkey-a

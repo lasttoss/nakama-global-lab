@@ -12,7 +12,7 @@ Nakama embeds its migrations in the binary and applies them with `nakama migrate
 That path is **broken on YugabyteDB** (fails at
 `20180103142001_initial_schema.sql` with `SQLSTATE 40001`, at the COMMIT of the file's transaction —
 see `docs/nakama-with-yugabytedb.md`)
-while **the very same SQL applies cleanly through `ysqlsh`**. See `docs/findings.md`.
+while **the very same SQL applies cleanly through `ysqlsh`**. See `docs/nakama-with-yugabytedb.md`.
 
 So this repo applies the schema itself (`scripts/yb-init.sh`) and seeds Nakama's
 `migration_info` bookkeeping table. The SQL must be present at runtime ⇒ vendored.

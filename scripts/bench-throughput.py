@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Đo throughput + độ trễ theo mức đồng thời, trên 1 cell Nakama.
+"""Measure throughput + latency across concurrency levels for one Nakama cell.
 
   python3 scripts/bench-throughput.py --api http://127.0.0.1:20850 --requests 600 --concurrency 1,10,50
 
-Không dùng thư viện ngoài. Mỗi mức đồng thời chạy tuần tự; in req/s, p50/p95, tỉ lệ lỗi.
+No external libraries. Each concurrency level runs in sequence; prints req/s, p50/p95, error rate.
 """
 import argparse, json, statistics, threading, time, urllib.request, urllib.error, base64
 
@@ -53,12 +53,12 @@ if __name__ == "__main__":
     ap.add_argument("--requests", type=int, default=600)
     ap.add_argument("--concurrency", default="1,10,50")
     ap.add_argument("--only", choices=["auth", "get", "both"], default="both")
-    ap.add_argument("--settle", type=float, default=3.0, help="nghỉ giữa các mức (giây)")
+    ap.add_argument("--settle", type=float, default=3.0, help="pause between levels (seconds)")
     a = ap.parse_args()
 
     _, err = call(f"{a.api}/v2/account/authenticate/device?create=true", "POST",
                   {"id": "bench-throughput-device"})
-    if err: raise SystemExit(f"cell không trả lời: {err}")
+    if err: raise SystemExit(f"cell did not answer: {err}")
     import re
     req = urllib.request.Request(f"{a.api}/v2/account/authenticate/device?create=true", method="POST",
                                  data=b'{"id":"bench-throughput-device"}')
@@ -70,8 +70,8 @@ if __name__ == "__main__":
     with urllib.request.urlopen(req) as r:
         DEVICE_UID = json.load(r)["user"]["id"]
 
-    print(f"cell={a.api}  requests/mức={a.requests}")
-    print(f"{'thao tác':<10} {'đồng thời':>9} {'req/s':>9} {'p50(ms)':>9} {'p95(ms)':>9} {'lỗi':>5}")
+    print(f"cell={a.api}  requests/level={a.requests}")
+    print(f"{'operation':<10} {'concurrency':>11} {'req/s':>9} {'p50(ms)':>9} {'p95(ms)':>9} {'errors':>7}")
     kinds = {"auth": ["auth"], "get": ["storage GET"], "both": ["auth", "storage GET"]}[a.only]
     for kind in kinds:
         for c in [int(x) for x in a.concurrency.split(",")]:

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Quét secret rò rỉ trong file được track. Cho phép giá trị dev mặc định của lab.
+# Scan tracked files for leaked secrets. Default dev values used by this lab are allowed.
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 files=$(git ls-files 2>/dev/null || find . -type f -not -path './.git/*' -not -path './yb-migrations/*')
