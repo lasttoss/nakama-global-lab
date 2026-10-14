@@ -41,6 +41,10 @@ The migrations are applied by **the same statement-at-a-time path** as the singl
 | `yb3-n3` restarted | rejoined in **1 s** |
 | rows before/after | intact (12 rows) |
 
+Recreating the three containers against the same data directory also preserved everything
+(`migration_info` 20/20, every probe row) — the cluster is durable across container lifecycle, and
+`YB3_DATA=<path>` lets that 5 GB of data live outside the source tree.
+
 Placement confirms the data plane is genuinely spread across the nodes — e.g. the `users` tablet is
 led by `n2` (`yb-admin list_tablets ysql.nakama3 users`), not by the node the client connects to.
 
