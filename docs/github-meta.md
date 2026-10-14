@@ -1,4 +1,4 @@
-> Running Nakama on YugabyteDB, measured: `nakama migrate up` fails at migration 1 on a fresh database (same SQL applies 20/20 via ysqlsh, reduced to a 4-line repro that PostgreSQL and CockroachDB commit); plus cell-based scaling with netem-measured latency, throughput and 0.08 s cell failover.
+> Nakama on YugabyteDB, measured end to end: migrate up fails at migration 1 on a fresh database (same SQL applies 20/20 via ysqlsh, reduced to a 4-line repro that PostgreSQL and CockroachDB commit); cell scaling with 0.08 s cell failover, a 3-node RF=3 cluster that keeps writing when a node is killed, and a 10-minute soak at 3.1k req/s with no degradation.
 
 # GitHub description & topics (paste manually)
 
