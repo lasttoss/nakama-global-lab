@@ -19,6 +19,9 @@ init:      ; docker compose run --rm yb-init
 init-logs: ; docker compose logs yb-init
 
 # ── kiểm chứng ───────────────────────────────────────────────────────────────
+mem: ; bash scripts/bench-memory.sh --duration 120 --interval 10 \
+	--containers nkglobal-yb,nkglobal-nakama-a,nkglobal-nakama-b,nkglobal-valkey-a
+
 smoke: ; API_A=http://127.0.0.1:20350 API_B=http://127.0.0.1:20450 CONSOLE_A=http://127.0.0.1:20351 \
          VK_A=nkglobal-valkey-a VK_B=nkglobal-valkey-b VK_PORT_A=6379 VK_PORT_B=6379 \
          SQL_EXEC="docker exec nkglobal-yb /home/yugabyte/bin/ysqlsh -h 127.0.0.1 -U yugabyte -d yugabyte -c" \

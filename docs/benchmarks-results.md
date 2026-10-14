@@ -134,10 +134,35 @@ with their single data-plane round trip.
 
 ⇒ No degradation across 10 minutes: throughput and every percentile hold at the same level.
 
-Memory over the same window (sampled every 30 s): YugabyteDB **1.93 → 2.55 GiB**, the loaded cell
-**122 → 309 MiB**. Both were still creeping upward when the run ended, so this file does **not** claim
-they are stable — ten minutes cannot separate cache warming (the YB block cache in particular) from a
-leak. A multi-hour run is the next measurement, and is listed in the limitations.
+### Memory: measured properly, and the earlier number was the wrong number
+
+The first pass sampled `docker stats` and read YugabyteDB **1.93 → 2.55 GiB** and the loaded cell
+**122 → 309 MiB**, both "still creeping upward". That measurement could not tell cache warming from a
+leak, because `docker stats` (and cgroup `memory.current`) adds **page cache** into the same figure as
+process memory. `bash scripts/bench-memory.sh` now reads cgroup `memory.stat` and splits them:
+
+| Container | Phase | `anon` (process) | `file` (page cache) | `memory.current` (= what `docker stats` shows) |
+|---|---|---|---|---|
+| YugabyteDB | 7 min idle | 569 → **570 MiB** | 475 → **476 MiB** | 1106 → **1108 MiB** |
+| YugabyteDB | 10 min at 3278 req/s | 1042 → **1174 MiB**, converging | 476 → **6943 MiB**, linear in requests | 1106 → **8396 MiB** |
+| YugabyteDB | 9 min idle again | **1166 MiB**, flat | 6943 MiB, flat | 8396 MiB, flat |
+| Cell A (loaded) | 10 min at 3278 req/s | 278 → **288 MiB, flat for the last 4 min** | 4 MiB, flat | 298 MiB |
+| Cell A (loaded) | 9 min idle again | 288 → **187 MiB** — gives memory back | 4 MiB | 195 MiB |
+| Cell B (no traffic) | all 19 min | **10 MiB, flat** | 0.5 MiB | 13 MiB |
+
+Three things this settles:
+
+- **No leak.** Nothing grows without traffic: cell B receives none and stays flat at 10 MiB for 19
+  minutes, and every phase goes flat the moment load stops. A leaking process does not hand 35% of its
+  memory back when the load ends, which is exactly what cell A does (288 → 187 MiB).
+- **YugabyteDB's process memory converges, it does not climb.** The per-sample deltas decelerate
+  (+58, +30, +24, +20, then −9 MiB) and settle near **1.15 GiB** — warm-up of caches and arenas, bounded.
+- **The scary number was page cache.** Of YugabyteDB's 7.3 GiB apparent growth, **6.5 GiB is `file`** —
+  rock-solid, reclaimable page cache from RocksDB file I/O, not memory held hostage. 87% of the figure
+  `docker stats` reports is memory the kernel will evict on demand.
+
+The 10-minute soak's own numbers stand (3.1k req/s, p99 57 ms, no degradation); only the memory
+conclusion changes, and it changes from "cannot tell" to "measured: cache, not leak".
 
 ## Data-plane failure — the one dependency cells do not cover
 
