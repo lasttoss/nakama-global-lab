@@ -2,8 +2,9 @@
 
 This file fixes the method so numbers are produced and trusted. **Items 1–5 have been run** — see [`docs/benchmarks-results.md`](benchmarks-results.md):
 cell↔data-plane latency (1/2/3 data-plane round trips per read/auth/write, measured with netem),
-throughput with and without delay, and cell-death recovery. **Still not measured:** a real
-cross-region deployment, data-plane failure, and multi-hour soak behaviour.
+throughput with and without delay, and cell-death recovery. Also run: **throughput ceiling** with a
+goroutine load generator (3.3k auth/s, 4.8k reads/s) and **data-plane failure** (pause and stop).
+**Still not measured:** a real cross-region deployment and multi-hour soak behaviour.
 
 ## What to measure
 
@@ -15,6 +16,7 @@ cross-region deployment, data-plane failure, and multi-hour soak behaviour.
 | 4 | Throughput ceiling | ramped workers (k6/artillery), report req/s at p95 < 27 ms and error rate |
 | 5 | Cell failure recovery | kill cell A mid-ramp: time until clients reconnect to cell B, error count |
 | 6 | Cost per 1k CCU-hour | node counts × cloud list prices, stated with the region and date |
+| 7 | Data-plane outage | `docker pause` (stall) and `docker stop`, measuring client errors, cell survival, recovery time, data integrity |
 
 ## The cross-region part (the only number that decides the architecture)
 

@@ -62,9 +62,8 @@ shares one CPU with everything else. `--requests 600`, errors 0 in every case.
 | storage GET **req/s** | 884 | **2086** | 1721 |
 | storage GET p95 | 1.2 ms | 6.5 ms | 168 ms |
 
-⇒ It saturates around **concurrency 10** (~1.4k auth/s, ~2.1k reads/s). Past that, p95 degrades
-sharply and throughput *falls*: the ceiling belongs to the cell and its data-plane connection pool,
-not to the client.
+⇒ It saturates around **concurrency 10** (~1.4k auth/s, ~2.1k reads/s). **These numbers are
+client-bound, not cell-bound** — see the ceiling section below for what the cell actually does.
 
 ## Throughput with a WAN-like delay (netem 120 ms one-way ≈ 240 ms RTT)
 
@@ -94,6 +93,47 @@ round trips.
 
 ⇒ A cell is disposable: the recovery cost is the client's failover logic, and no data is lost because
 no cell owns data. This is the practical payoff of the per-cell + shared-data-plane design.
+
+
+## Ceiling — with a load generator that is not the bottleneck
+
+Three clients were tried, and the first two measured themselves:
+
+| Client | Reported | What it actually measured |
+|---|---|---|
+| Python threads | ~1.4k auth/s | the client (one CPU, GIL) |
+| `xargs -P` + one `curl` per request | 573 req/s | **process spawning**, not the cell |
+| `scripts/bench-load.go` (goroutines, fixed concurrency, fixed duration) | see below | the cell |
+
+```bash
+go run scripts/bench-load.go -api http://127.0.0.1:20350 -op auth -conc 100 -dur 8s
+```
+
+| op | concurrency | req/s | p50 | p95 | p99 | errors |
+|---|---|---|---|---|---|---|
+| auth | 10 | 2 376 | 3.9 ms | 6.4 ms | 8.1 ms | 0 |
+| auth | 50 | 2 719 | 17.3 ms | 28.6 ms | 36.5 ms | 0 |
+| auth | **100** | **3 275** | 29.7 ms | 43.6 ms | 52.8 ms | 0 |
+| auth | 200 | 3 164 | 58.9 ms | 105.3 ms | 134.7 ms | 0 |
+| storage GET | 50 | 4 317 | 10.5 ms | 17.8 ms | 23.5 ms | 0 |
+| storage GET | **200** | **4 781** | 36.4 ms | 78.3 ms | 112.2 ms | 0 |
+
+⇒ **auth knees around concurrency 100 ≈ 3.3k req/s** (p99 stays under 53 ms); reads keep scaling to
+**≈4.8k req/s at concurrency 200**. Zero errors at every level. Reads are the cheapest path, consistent
+with their single data-plane round trip.
+
+## Data-plane failure — the one dependency cells do not cover
+
+Cells are disposable; the shared data plane is not. `bash scripts/bench-dataplane-failure.sh`:
+
+| Scenario | Clients during the outage | Cell process | Recovery once the plane answers | Data |
+|---|---|---|---|---|
+| **paused** (`docker pause` — a stall, the harsher case) | 4/4 requests fail (4 s timeout) | stays up | auth **0 s**, storage **0 s** | intact (`migration_info` = 20) |
+| **stopped** (`docker stop` — gone) | 4/4 fail | stays up, does not exit | YB answers again after **5–6 s**; auth **1 s**, storage **1 s** later | intact |
+
+⇒ A data-plane outage takes **every cell** down at once: per-cell redundancy does not cover it. What was
+measured here is the reassuring half — no data loss in either mode, cells do not crash, and recovery is
+automatic and takes about a second after the plane answers (no cell restart needed).
 
 ## Limitations (so these numbers are not over-read)
 

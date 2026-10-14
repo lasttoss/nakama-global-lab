@@ -82,9 +82,9 @@ NBOARD=$(${SQL_EXEC:-docker exec nkcrdb-crdb /cockroach/cockroach sql --insecure
 echo "        (console sẽ liệt kê board này SAU khi node khởi động lại — registry nạp lúc start)"
 
 hr "4. VALKEY per-cell: có share không? (kỳ vọng: KHÔNG)"
-docker exec "$VK_A" valkey-cli -p ${VK_PORT_A:-6380} SET local_key only-in-A >/dev/null 2>&1
-OA=$(docker exec "$VK_A" valkey-cli -p ${VK_PORT_A:-6380} GET local_key 2>/dev/null)
-OB=$(docker exec "$VK_B" valkey-cli -p ${VK_PORT_B:-6381} GET local_key 2>/dev/null)
+docker exec "$VK_A" valkey-cli -p ${VK_PORT_A:-6379} SET local_key only-in-A >/dev/null 2>&1
+OA=$(docker exec "$VK_A" valkey-cli -p ${VK_PORT_A:-6379} GET local_key 2>/dev/null)
+OB=$(docker exec "$VK_B" valkey-cli -p ${VK_PORT_B:-6379} GET local_key 2>/dev/null)
 echo "   valkey-A='$OA'  valkey-B='${OB:-<nil>}'"
 { [ "$OA" = "only-in-A" ] && [ -z "$OB" ] && ok "VALKEY KHÔNG SHARE ✓ (đúng: state cục bộ)"; } || ko "valkey ngoài ý muốn (A='$OA' B='$OB')"
 

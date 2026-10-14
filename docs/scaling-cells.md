@@ -65,6 +65,22 @@ Keep the credential/account layer in the shared data plane, so a client that lan
 cell still works — it just has worse latency, which is exactly the trade-off that cell + shared
 data plane buys you (availability and roaming over perfect placement).
 
+## What cell redundancy does *not* cover
+
+Adding cells protects against **a cell** failing; it does nothing about the shared data plane, which is
+a single dependency for every cell at once. Measured (`docs/benchmarks-results.md`):
+
+| Outage | Effect | Recovery |
+|---|---|---|
+| one cell killed | that cell's clients fail; others unaffected | a cell-list client served by another cell in **0.08 s** |
+| data plane paused (stall) | **all** cells fail (4/4 requests) | instant once the plane answers; no cell restart needed |
+| data plane stopped | **all** cells fail | YB back in 5–6 s, cells serving **1 s** later |
+
+No data was lost in any of these modes, and the cells never exited. Budget for this honestly: cells buy
+you *capacity and cell-level fault tolerance*, not resilience to the database. If the data plane must
+survive losing a region, that is a different (and more expensive) design — the trade-off is spelled out
+in `docs/nakama-with-yugabytedb.md` and the scaling notes.
+
 ## Two traps worth knowing
 
 1. **A player's account row must have a single writer.** Roaming means "read anywhere, write at the

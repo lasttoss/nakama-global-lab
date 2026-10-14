@@ -15,8 +15,9 @@ and automated.
 | Can a new cell be added with no data migration? | **Yes** — one command, no data moves | `bash scripts/add-cell.sh e` (`docs/scaling-cells.md`) |
 | Does local state leak between cells? | **No** — Valkey is per cell by design | smoke step 4 |
 | What does a cross-region data plane cost? | **~160× on the hot path** — auth p50 1.5 ms → 242 ms over a symmetric 60 ms WAN | `docs/benchmarks-results.md` |
-| How much can one cell take? | saturates near **1.4k auth/s / 2.1k reads/s** (single-node YB); with a 240 ms RTT it becomes latency-bound and p95 queues | `docs/benchmarks-results.md` |
+| How much can one cell take? | **~3.3k auth/s** (knee at concurrency 100, p99 53 ms) and **~4.8k reads/s** (single-node YB) | `docs/benchmarks-results.md` |
 | What happens when a cell dies? | a cell-list client recovers in **0.08 s** on another cell, **same account**, nothing lost | `docs/benchmarks-results.md` |
+| What happens when the data plane dies? | **every cell fails at once** — but no data loss, cells survive, and a cell serves again **1 s** after the plane answers | `docs/benchmarks-results.md` |
 
 ## Quickstart
 
@@ -102,9 +103,9 @@ throughput with and without delay, and cell-death recovery (0.08 s failover to a
 
 ## Not measured yet (honest list)
 
-- **A real cross-region deployment** — delay was injected on one machine; no multi-region cluster was
-  run, and data-plane (not just cell) failure is untested.
-- **Sustained load** — throughput was measured in short bursts; multi-hour soak behaviour is untested.
+- **A real cross-region deployment** — delay was injected on one machine; no multi-region cluster was run.
+- **Multi-hour soak** — a 10-minute steady soak is in `docs/benchmarks-results.md`; hours-long
+  behaviour (leaks, index bloat, tablet splits) is still untested.
 - **Multi-node YugabyteDB** (this lab is single-node YB; production needs 3 nodes for RF=3) —
   runbook in [`docs/selfhost-3node-ubuntu.md`](docs/selfhost-3node-ubuntu.md).
 - Leaderboard writes through the client API: creating a board needs a Nakama **runtime RPC**, so the
