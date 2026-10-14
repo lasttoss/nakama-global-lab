@@ -127,9 +127,9 @@ throughput with and without delay, and cell-death recovery (0.08 s failover to a
 - Leaderboard writes through the client API: creating a board needs a Nakama **runtime RPC**, so the
   smoke test skips that step instead of faking a pass (see `scripts/smoke.sh`).
 
-## Notes in Vietnamese
+## Notes
 
-Working notes kept as-is: [`docs/measurements.md`](docs/measurements.md),
+Working notes: [`docs/measurements.md`](docs/measurements.md),
 [`docs/yugabyte-workaround.md`](docs/yugabyte-workaround.md),
 [`docs/selfhost-3node-ubuntu.md`](docs/selfhost-3node-ubuntu.md).
 
