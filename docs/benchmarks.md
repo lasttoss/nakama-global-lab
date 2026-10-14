@@ -3,7 +3,8 @@
 This file fixes the method so numbers are produced and trusted. **Items 1–5 have been run** — see [`docs/benchmarks-results.md`](benchmarks-results.md):
 cell↔data-plane latency (1/2/3 data-plane round trips per read/auth/write, measured with netem),
 throughput with and without delay, and cell-death recovery. Also run: **throughput ceiling** with a
-goroutine load generator (3.3k auth/s, 4.8k reads/s) and **data-plane failure** (pause and stop).
+goroutine load generator (3.3k auth/s, 4.8k reads/s), a **10-minute soak** (no degradation), and
+**data-plane failure** (pause and stop).
 **Still not measured:** a real cross-region deployment and multi-hour soak behaviour.
 
 ## What to measure

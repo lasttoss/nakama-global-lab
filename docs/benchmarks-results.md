@@ -122,6 +122,23 @@ go run scripts/bench-load.go -api http://127.0.0.1:20350 -op auth -conc 100 -dur
 **≈4.8k req/s at concurrency 200**. Zero errors at every level. Reads are the cheapest path, consistent
 with their single data-plane round trip.
 
+## Soak — 10 minutes at the knee
+
+`go run scripts/bench-load.go -api http://127.0.0.1:20350 -op auth -conc 100 -dur 10m`:
+
+| | 8-second burst | **10-minute soak** |
+|---|---|---|
+| req/s | 3 275 | 3 120 |
+| p50 / p95 / p99 | 29.7 / 43.6 / 52.8 ms | 31.0 / 47.0 / 57.1 ms |
+| requests served | 19 692 | **1 872 325**, 0 errors |
+
+⇒ No degradation across 10 minutes: throughput and every percentile hold at the same level.
+
+Memory over the same window (sampled every 30 s): YugabyteDB **1.93 → 2.55 GiB**, the loaded cell
+**122 → 309 MiB**. Both were still creeping upward when the run ended, so this file does **not** claim
+they are stable — ten minutes cannot separate cache warming (the YB block cache in particular) from a
+leak. A multi-hour run is the next measurement, and is listed in the limitations.
+
 ## Data-plane failure — the one dependency cells do not cover
 
 Cells are disposable; the shared data plane is not. `bash scripts/bench-dataplane-failure.sh`:

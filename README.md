@@ -16,6 +16,8 @@ and automated.
 | Does local state leak between cells? | **No** — Valkey is per cell by design | smoke step 4 |
 | What does a cross-region data plane cost? | **~160× on the hot path** — auth p50 1.5 ms → 242 ms over a symmetric 60 ms WAN | `docs/benchmarks-results.md` |
 | How much can one cell take? | **~3.3k auth/s** (knee at concurrency 100, p99 53 ms) and **~4.8k reads/s** (single-node YB) | `docs/benchmarks-results.md` |
+| Does the storage side scale? | **yes** — 3-node cluster, replication factor 3: killing one node left writes working **10/10**, and the node rejoined in **1 s** | `docs/yb-3node-lab.md` |
+| How long does it hold up? | **10-minute soak at the knee: no degradation** (3 120 req/s, p99 57 ms, 1.87 M requests, 0 errors) | `docs/benchmarks-results.md` |
 | What happens when a cell dies? | a cell-list client recovers in **0.08 s** on another cell, **same account**, nothing lost | `docs/benchmarks-results.md` |
 | What happens when the data plane dies? | **every cell fails at once** — but no data loss, cells survive, and a cell serves again **1 s** after the plane answers | `docs/benchmarks-results.md` |
 
@@ -79,6 +81,11 @@ repro/                      # 3-statement minimal reproduction + self-checking r
 docker-compose.yml          # YugabyteDB + yb-init + 2 cells + 2 Valkey   (main stack)
 docker-compose.crdb.yml     # same topology on CockroachDB, using `nakama migrate up` (it works there)
 docker-compose.cell.yml     # template for adding one more cell
+docker-compose.yb3.yml      # 3-node YugabyteDB cluster, replication factor 3 (storage-side scaling)
+repro/                      # 4-line reproduction of the migration blocker + controls
+scripts/yb3-init.sh         # apply the 20 migrations to the 3-node cluster
+scripts/yb3-kill-test.sh    # kill a node, prove writes continue, let it rejoin
+scripts/bench-load.go       # goroutine load generator (throughput ceiling, soak)
 scripts/yb-init.sh          # applies pinned migrations with ysqlsh + seeds migration_info (idempotent)
 scripts/add-cell.sh         # add a cell and prove it shares the data plane
 scripts/smoke.sh            # cross-cell verification (auth / storage / leaderboard / Valkey isolation)
@@ -106,8 +113,9 @@ throughput with and without delay, and cell-death recovery (0.08 s failover to a
 - **A real cross-region deployment** — delay was injected on one machine; no multi-region cluster was run.
 - **Multi-hour soak** — a 10-minute steady soak is in `docs/benchmarks-results.md`; hours-long
   behaviour (leaks, index bloat, tablet splits) is still untested.
-- **Multi-node YugabyteDB** (this lab is single-node YB; production needs 3 nodes for RF=3) —
-  runbook in [`docs/selfhost-3node-ubuntu.md`](docs/selfhost-3node-ubuntu.md).
+- **Multi-hour behaviour** — the soak above is 10 minutes; hours-long runs (leaks, index bloat,
+  tablet splits) are untested. Self-hosting notes for real machines:
+  [`docs/selfhost-3node-ubuntu.md`](docs/selfhost-3node-ubuntu.md).
 - Leaderboard writes through the client API: creating a board needs a Nakama **runtime RPC**, so the
   smoke test skips that step instead of faking a pass (see `scripts/smoke.sh`).
 

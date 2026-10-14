@@ -1,0 +1,51 @@
+# YugabyteDB 3 node (mỗi node chạy cả master + tserver, như 3 máy thật), replication factor 3.
+# Dùng để CHỨNG MINH phần "scale storage": mất 1 node vẫn ghi/đọc được.
+#
+#   docker compose -f docker-compose.yb3.yml up -d
+#   bash scripts/yb3-init.sh          # áp 20 migration (từng câu) + seed migration_info
+#   bash scripts/yb3-kill-test.sh     # kill 1 node, kiểm vẫn phục vụ, rồi cho node vào lại
+#
+# Khác lab chính: 3 container, cổng 15433/25433/35433, volume riêng, RF=3.
+name: yb3
+
+x-yb: &yb
+  image: yugabytedb/yugabyte:${YB_TAG:-2026.1.2.0-b137}
+  restart: unless-stopped
+  environment:
+    YB_TSERVER_ARGS: "--memory_limit_hard_bytes=1500000000"
+
+services:
+  n1:
+    <<: *yb
+    container_name: yb3-n1
+    command: >
+      bin/yugabyted start --daemon=false --ui=false
+      --advertise_address=n1 --base_dir=/home/yugabyte/yb_data
+      --fault_tolerance=zone --cloud_location=lab.region1.zone1
+      --tserver_flags="memory_limit_hard_bytes=1500000000"
+    ports: ["15433:5433"]
+    volumes: ["./yb3-data/n1:/home/yugabyte/yb_data"]
+
+  n2:
+    <<: *yb
+    container_name: yb3-n2
+    depends_on: [n1]
+    command: >
+      bin/yugabyted start --daemon=false --ui=false
+      --advertise_address=n2 --join=n1 --base_dir=/home/yugabyte/yb_data
+      --fault_tolerance=zone --cloud_location=lab.region1.zone2
+      --tserver_flags="memory_limit_hard_bytes=1500000000"
+    ports: ["25433:5433"]
+    volumes: ["./yb3-data/n2:/home/yugabyte/yb_data"]
+
+  n3:
+    <<: *yb
+    container_name: yb3-n3
+    depends_on: [n1]
+    command: >
+      bin/yugabyted start --daemon=false --ui=false
+      --advertise_address=n3 --join=n1 --base_dir=/home/yugabyte/yb_data
+      --fault_tolerance=zone --cloud_location=lab.region1.zone3
+      --tserver_flags="memory_limit_hard_bytes=1500000000"
+    ports: ["35433:5433"]
+    volumes: ["./yb3-data/n3:/home/yugabyte/yb_data"]

@@ -5,3 +5,4 @@
 tmp/
 /tmp/
 docs/restore-stacks.sh
+yb3-data/
